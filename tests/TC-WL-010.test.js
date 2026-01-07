@@ -36,7 +36,6 @@ describe('TC-WL-010: Location field validation', function() {
         driver = await new Builder().forBrowser('chrome').build();
         await driver.manage().window().maximize();
         
-        // Login first
         await driver.get(BASE_URL);
         const signInLink = await driver.wait(
             until.elementLocated(By.css('a.sign-in-link, a[href="/sign-in/"]')),
@@ -62,10 +61,6 @@ describe('TC-WL-010: Location field validation', function() {
         }
     });
 
-    /**
-     * Step 1: Click the Profile tab of the Settings page
-     * Expected: Profile edit form is displayed
-     */
     it('Step 1: Should display profile edit form', async function() {
         await driver.get(SETTINGS_URL);
         await driver.sleep(2000);
@@ -77,10 +72,6 @@ describe('TC-WL-010: Location field validation', function() {
         expect(bodyText).to.be.true;
     });
 
-    /**
-     * Step 2: Click into the Location field
-     * Expected: Cursor is blinking inside the field
-     */
     it('Step 2: Should focus on Location field', async function() {
         const locationField = await driver.wait(
             until.elementLocated(By.css('input[name="location"]')),
@@ -93,10 +84,6 @@ describe('TC-WL-010: Location field validation', function() {
         expect(fieldName).to.equal('location');
     });
 
-    /**
-     * Step 3: Paste the provided InvalidLocation into the field
-     * Expected: Field is populated with the respective value
-     */
     it('Step 3: Should populate field with invalid location', async function() {
         const locationField = await driver.findElement(By.css('input[name="location"]'));
         await locationField.clear();
@@ -106,13 +93,7 @@ describe('TC-WL-010: Location field validation', function() {
         expect(value).to.equal(TEST_DATA.invalidLocation);
     });
 
-    /**
-     * Step 4: Click Save Changes
-     * Expected: The Location field border changes color to red and error message shown
-     * Actual (from test case): Changes are saved with the invalid location - FAIL
-     */
     it('Step 4: Should show validation error for invalid location (BUG: No validation)', async function() {
-        // Find all submit buttons and click the visible one
         const saveButtons = await driver.findElements(
             By.css('input[type="submit"], button[type="submit"]')
         );
@@ -135,20 +116,14 @@ describe('TC-WL-010: Location field validation', function() {
         expect(clicked).to.be.true;
         await driver.sleep(2000);
         
-        // Check for error state
         const errorElements = await driver.findElements(
             By.css('.error, .field-error, .invalid-feedback, [class*="error"], .form-error')
         );
         
-        // BUG: System saves invalid location without validation
         const hasErrors = errorElements.length > 0;
         expect(hasErrors).to.be.false;
     });
 
-    /**
-     * Step 5-6: Click into Location field and remove current value
-     * Expected: The field is empty
-     */
     it('Step 5-6: Should clear the Location field', async function() {
         const locationField = await driver.findElement(By.css('input[name="location"]'));
         await locationField.click();
@@ -158,10 +133,6 @@ describe('TC-WL-010: Location field validation', function() {
         expect(value).to.equal('');
     });
 
-    /**
-     * Step 7: Paste the provided ValidLocation into the field
-     * Expected: Field is populated with the respective value
-     */
     it('Step 7: Should populate field with valid location', async function() {
         const locationField = await driver.findElement(By.css('input[name="location"]'));
         await locationField.sendKeys(TEST_DATA.validLocation);
@@ -170,12 +141,7 @@ describe('TC-WL-010: Location field validation', function() {
         expect(value).to.equal(TEST_DATA.validLocation);
     });
 
-    /**
-     * Step 8: Click Save Changes
-     * Expected: Changes are saved and a toast is shown
-     */
     it('Step 8: Should save valid location successfully', async function() {
-        // Find all submit buttons and click the visible one
         const saveButtons = await driver.findElements(
             By.css('input[type="submit"], button[type="submit"]')
         );
@@ -202,10 +168,6 @@ describe('TC-WL-010: Location field validation', function() {
         expect(currentUrl).to.include('settings');
     });
 
-    /**
-     * Step 9: Navigate to your Profile page
-     * Expected: Location is visible under your name
-     */
     it('Step 9: Should display location on profile page', async function() {
         await driver.get(`${BASE_URL}/${TEST_USER.username}/`);
         await driver.sleep(2000);

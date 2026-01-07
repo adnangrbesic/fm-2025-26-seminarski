@@ -21,9 +21,11 @@ const TEST_USER = {
  * @returns {Promise<WebDriver>} Configured WebDriver instance
  */
 async function createDriver() {
+    console.log(' -> Initializing WebDriver...');
     const driver = await new Builder().forBrowser('chrome').build();
     await driver.manage().window().maximize();
     await driver.manage().setTimeouts({ implicit: TIMEOUT });
+    console.log(' -> WebDriver initialized successfully.');
     return driver;
 }
 
@@ -34,6 +36,7 @@ async function createDriver() {
  * @param {string} password - Password to login with
  */
 async function login(driver, username = TEST_USER.username, password = TEST_USER.password) {
+    console.log(' -> Starting Login process...');
     await driver.get(BASE_URL);
     
     // Click sign in link
@@ -61,6 +64,7 @@ async function login(driver, username = TEST_USER.username, password = TEST_USER
     
     // Wait for login to complete
     await driver.sleep(2000);
+    console.log(' -> Login completed (waited 2s).');
 }
 
 /**
