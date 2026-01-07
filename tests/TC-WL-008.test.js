@@ -6,20 +6,25 @@
  * Priority: High
  * Severity: Major
  * Type: Security
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { Builder, By, until } = require('selenium-webdriver');
-
-let expect;
-
-const BASE_URL = 'https://letterboxd.com';
-const SETTINGS_URL = `${BASE_URL}/settings/`;
-const TIMEOUT = 10000;
-
-const TEST_USER = {
-    username: 'formal_methods',
-    password: 'Formal_Methods2025'
-};
+const { By, until } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    SETTINGS_URL,
+    TIMEOUT,
+    TEST_USER,
+    LOCATORS,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai,
+    saveChanges
+} = require('./setup');
 
 const TEST_DATA = {
     invalidURL: 'incorrect_url_format'
@@ -28,31 +33,17 @@ const TEST_DATA = {
 describe('TC-WL-008: System does not redirect users to non-valid URLs', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
-        driver = await new Builder().forBrowser('chrome').build();
-        await driver.manage().window().maximize();
-        
-        await driver.get(`${BASE_URL}/sign-in/`);
-        await driver.sleep(2000);
-        
-        await driver.wait(until.elementLocated(By.css('input[name="username"]')), TIMEOUT);
-        const usernameField = await driver.findElement(By.css('input[name="username"]'));
-        await usernameField.sendKeys(TEST_USER.username);
-        
-        const passwordField = await driver.findElement(By.css('input[name="password"]'));
-        await passwordField.sendKeys(TEST_USER.password);
-        
-        const submitBtn = await driver.findElement(By.css('input[type="submit"], button[type="submit"]'));
-        await submitBtn.click();
-        await driver.sleep(3000);
+        expect = await initChai();
+        driver = await createDriver();
+        await login(driver);
     });
 
     after(async function() {
         if (driver) {
-            await driver.quit();
+            await quitDriver(driver);
         }
     });
 
@@ -66,7 +57,7 @@ describe('TC-WL-008: System does not redirect users to non-valid URLs', function
 
     it('Step 2: Should focus on Website field', async function() {
         const websiteField = await driver.wait(
-            until.elementLocated(By.css('input[name="website"], input#website, input[type="url"]')),
+            until.elementLocated(By.css(LOCATORS.websiteField)),
             TIMEOUT
         );
         await websiteField.click();
@@ -76,9 +67,7 @@ describe('TC-WL-008: System does not redirect users to non-valid URLs', function
     });
 
     it('Step 3: Should populate field with invalid URL', async function() {
-        const websiteField = await driver.findElement(
-            By.css('input[name="website"], input#website, input[type="url"]')
-        );
+        const websiteField = await driver.findElement(By.css(LOCATORS.websiteField));
         await websiteField.clear();
         await websiteField.sendKeys(TEST_DATA.invalidURL);
         
@@ -87,27 +76,8 @@ describe('TC-WL-008: System does not redirect users to non-valid URLs', function
     });
 
     it('Step 4: Should save changes', async function() {
-        const saveButtons = await driver.findElements(
-            By.css('input[type="submit"], button[type="submit"]')
-        );
-        
-        let clicked = false;
-        for (const button of saveButtons) {
-            try {
-                if (await button.isDisplayed()) {
-                    await driver.executeScript('arguments[0].scrollIntoView({block: "center"});', button);
-                    await driver.sleep(500);
-                    await driver.executeScript('arguments[0].click();', button);
-                    clicked = true;
-                    break;
-                }
-            } catch (e) {
-                continue;
-            }
-        }
-        
+        const clicked = await saveChanges(driver);
         expect(clicked).to.be.true;
-        await driver.sleep(3000);
         
         const currentUrl = await driver.getCurrentUrl();
         expect(currentUrl).to.include('settings');
@@ -121,9 +91,9 @@ describe('TC-WL-008: System does not redirect users to non-valid URLs', function
         expect(currentUrl).to.include(TEST_USER.username);
     });
 
-    it('Step 6: Should warn about malformed URL before redirect', async function() {
+    it('Step 6: Should warn about malformed URL before redirect (BUG: No warning)', async function() {
         const websiteLinks = await driver.findElements(
-            By.css('a.metadatum[rel*="me"], a[rel="me nofollow"]')
+            By.css('a[rel*="me"], a[rel="me nofollow"]')
         );
         
         if (websiteLinks.length > 0) {
@@ -148,6 +118,7 @@ describe('TC-WL-008: System does not redirect users to non-valid URLs', function
                 await driver.switchTo().window(originalWindowHandles[0]);
             }
             
+            // BUG: System redirects without warning
             expect(warningDisplayed).to.be.true;
         } else {
             expect(true).to.be.true;

@@ -6,20 +6,25 @@
  * Priority: Medium
  * Severity: Minor
  * Type: Functional
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { Builder, By, until } = require('selenium-webdriver');
-
-let expect;
-
-const BASE_URL = 'https://letterboxd.com';
-const SETTINGS_URL = `${BASE_URL}/settings/`;
-const TIMEOUT = 10000;
-
-const TEST_USER = {
-    username: 'formal_methods',
-    password: 'Formal_Methods2025'
-};
+const { By, until } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    SETTINGS_URL,
+    TIMEOUT,
+    TEST_USER,
+    LOCATORS,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai,
+    saveChanges
+} = require('./setup');
 
 const TEST_DATA = {
     invalidURL: 'incorrect_url_format',
@@ -29,35 +34,17 @@ const TEST_DATA = {
 describe('TC-WL-006: User cannot save invalid URLs as website', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
-        driver = await new Builder().forBrowser('chrome').build();
-        await driver.manage().window().maximize();
-        
-        await driver.get(BASE_URL);
-        const signInLink = await driver.wait(
-            until.elementLocated(By.css('a.sign-in-link, a[href="/sign-in/"]')),
-            TIMEOUT
-        );
-        await signInLink.click();
-        
-        await driver.wait(until.elementLocated(By.css('input[name="username"]')), TIMEOUT);
-        const usernameField = await driver.findElement(By.css('input[name="username"]'));
-        await usernameField.sendKeys(TEST_USER.username);
-        
-        const passwordField = await driver.findElement(By.css('input[name="password"]'));
-        await passwordField.sendKeys(TEST_USER.password);
-        
-        const submitBtn = await driver.findElement(By.css('input[type="submit"], button[type="submit"]'));
-        await submitBtn.click();
-        await driver.sleep(3000);
+        expect = await initChai();
+        driver = await createDriver();
+        await login(driver);
     });
 
     after(async function() {
         if (driver) {
-            await driver.quit();
+            await quitDriver(driver);
         }
     });
 
@@ -68,13 +55,13 @@ describe('TC-WL-006: User cannot save invalid URLs as website', function() {
         const currentUrl = await driver.getCurrentUrl();
         expect(currentUrl).to.include('settings');
         
-        const bodyText = await driver.findElement(By.css('body')).isDisplayed();
-        expect(bodyText).to.be.true;
+        const bodyDisplayed = await driver.findElement(By.css('body')).isDisplayed();
+        expect(bodyDisplayed).to.be.true;
     });
 
     it('Step 2: Should focus on Website field', async function() {
         const websiteField = await driver.wait(
-            until.elementLocated(By.css('input[name="website"], input#website, input[type="url"]')),
+            until.elementLocated(By.css(LOCATORS.websiteField)),
             TIMEOUT
         );
         await websiteField.click();
@@ -85,9 +72,7 @@ describe('TC-WL-006: User cannot save invalid URLs as website', function() {
     });
 
     it('Step 3: Should populate field with invalid URL', async function() {
-        const websiteField = await driver.findElement(
-            By.css('input[name="website"], input#website, input[type="url"]')
-        );
+        const websiteField = await driver.findElement(By.css(LOCATORS.websiteField));
         await websiteField.clear();
         await websiteField.sendKeys(TEST_DATA.invalidURL);
         
@@ -95,42 +80,19 @@ describe('TC-WL-006: User cannot save invalid URLs as website', function() {
         expect(value).to.equal(TEST_DATA.invalidURL);
     });
 
-    it('Step 4: Should show validation error for invalid URL', async function() {
-        const saveButtons = await driver.findElements(
-            By.css('input[type="submit"], button[type="submit"]')
-        );
-        
-        let clicked = false;
-        for (const button of saveButtons) {
-            try {
-                if (await button.isDisplayed()) {
-                    await driver.executeScript('arguments[0].scrollIntoView({block: "center"});', button);
-                    await driver.sleep(500);
-                    await driver.executeScript('arguments[0].click();', button);
-                    clicked = true;
-                    break;
-                }
-            } catch (e) {
-                continue;
-            }
-        }
-        
+    it('Step 4: Should show validation error for invalid URL (BUG: No validation)', async function() {
+        const clicked = await saveChanges(driver);
         expect(clicked).to.be.true;
-        await driver.sleep(2000);
         
-        const errorElements = await driver.findElements(
-            By.css('.error, .field-error, .invalid-feedback, [class*="error"], .form-error')
-        );
-        
+        const errorElements = await driver.findElements(By.css(LOCATORS.errorMessage));
         const hasErrors = errorElements.length > 0;
         
+        // BUG: System saves invalid URL without validation
         expect(hasErrors).to.be.false;
     });
 
     it('Step 5-6: Should clear the Website field', async function() {
-        const websiteField = await driver.findElement(
-            By.css('input[name="website"], input#website, input[type="url"]')
-        );
+        const websiteField = await driver.findElement(By.css(LOCATORS.websiteField));
         await websiteField.click();
         await websiteField.clear();
         
@@ -139,9 +101,7 @@ describe('TC-WL-006: User cannot save invalid URLs as website', function() {
     });
 
     it('Step 7: Should populate field with valid URL', async function() {
-        const websiteField = await driver.findElement(
-            By.css('input[name="website"], input#website, input[type="url"]')
-        );
+        const websiteField = await driver.findElement(By.css(LOCATORS.websiteField));
         await websiteField.sendKeys(TEST_DATA.validURL);
         
         const value = await websiteField.getAttribute('value');
@@ -149,28 +109,10 @@ describe('TC-WL-006: User cannot save invalid URLs as website', function() {
     });
 
     it('Step 8: Should save valid URL successfully', async function() {
-        const saveButtons = await driver.findElements(
-            By.css('input[type="submit"], button[type="submit"]')
-        );
-        
-        let clicked = false;
-        for (const button of saveButtons) {
-            try {
-                if (await button.isDisplayed()) {
-                    await driver.executeScript('arguments[0].scrollIntoView({block: "center"});', button);
-                    await driver.sleep(500);
-                    await driver.executeScript('arguments[0].click();', button);
-                    clicked = true;
-                    break;
-                }
-            } catch (e) {
-                continue;
-            }
-        }
-        
+        const clicked = await saveChanges(driver);
         expect(clicked).to.be.true;
-        await driver.sleep(3000);
         
+        await driver.sleep(1000);
         const currentUrl = await driver.getCurrentUrl();
         expect(currentUrl).to.include('settings');
     });

@@ -6,20 +6,31 @@
  * Priority: Low
  * Severity: Low
  * Type: Negative/Stability
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { createDriver, login, BASE_URL, TIMEOUT, By, until } = require('./helpers/test-helper');
+const { By, until } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    TIMEOUT,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai
+} = require('./setup');
 
-let expect;
 const TEST_MOVIE_URL = `${BASE_URL}/film/pulp-fiction/`;
 
 describe('TC-WL-003: Add same movie twice', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
+        expect = await initChai();
         driver = await createDriver();
         await login(driver);
     });
@@ -28,13 +39,14 @@ describe('TC-WL-003: Add same movie twice', function() {
         if (driver) {
             try {
                 await driver.get(TEST_MOVIE_URL);
-                const btn = await driver.findElement(By.css('.sidebar-user-actions .watchlist'));
+                const btn = await driver.findElement(By.css('.watchlist'));
                 const cls = await btn.getAttribute('class');
                 if (cls.includes('-added')) {
                     await btn.click();
                 }
             } catch(e) {}
-            await driver.quit();
+            
+            await quitDriver(driver);
         }
     });
 
@@ -44,7 +56,7 @@ describe('TC-WL-003: Add same movie twice', function() {
     it('Step 1: Add movie to watchlist initially', async function() {
         await driver.get(TEST_MOVIE_URL);
         const watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist')),
+            until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
             TIMEOUT
         );
 
@@ -61,11 +73,9 @@ describe('TC-WL-003: Add same movie twice', function() {
     /**
      * Step 2: Click Add to Watchlist AGAIN
      * Expected: Button disabled OR State unchanged OR Warning message
-     * Note: On Letterboxd, this actually toggles (Removes), so this test might fail if the Requirement is strict.
-     * We follow the user's designated scenario assertions.
      */
     it('Step 2: Attempt to add same movie again and verify response', async function() {
-        const watchlistBtn = await driver.findElement(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist'));
+        const watchlistBtn = await driver.findElement(By.css('.watchlist, [data-action*="watchlist"]'));
         
         await watchlistBtn.click();
         await driver.sleep(1000);
@@ -79,12 +89,11 @@ describe('TC-WL-003: Add same movie twice', function() {
             messageVisible = await message.isDisplayed();
         } catch(e) {}
 
-        const isStateUnchanged = finalClass.includes('-added'); 
-        const isDisabled = !isEnabled; 
+        const isStateUnchanged = finalClass.includes('-added');
+        const isDisabled = !isEnabled;
 
         if (!isStateUnchanged && !isDisabled && !messageVisible) {
             console.warn('NOTE: System toggled the state (Removed movie) instead of blocking duplicate add.');
-            console.warn('This behavior deviates from the strict "Negative Test" expectation but is common in UI.');
         }
 
         expect(isStateUnchanged || isDisabled || messageVisible, 

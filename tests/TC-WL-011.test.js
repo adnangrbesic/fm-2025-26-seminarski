@@ -2,26 +2,35 @@
  * Test Case ID: TC-WL-011
  * Requirement ID: REQ-WL-BUG-01
  * Title: List Notification Subscription Login Flow (Bug Reproduction)
- * Description: Verify that clicking the notification bell on a list while logged out prompts login and successfully redirects back to the list.
- * Note: This test is EXPECTED TO FAIL due to a known bug where the user gets stuck in the login loop.
+ * Description: Verify that clicking the notification bell on a list while logged out prompts login and redirects back
+ * Note: This test is EXPECTED TO FAIL due to a known bug
  * Priority: High
  * Severity: Major
  * Type: Functional/Bug Verification
+ * 
+ * Koristi centralizirani setup iz setup.js
+ * NAPOMENA: Ovaj test NE koristi globalni login jer testira ponašanje za neprijavljene korisnike
  */
 
-const { createDriver, TEST_USER, TIMEOUT, By, until } = require('./helpers/test-helper');
+const { Builder, By, until } = require('selenium-webdriver');
+const {
+    TIMEOUT,
+    TEST_USER,
+    LOCATORS,
+    initChai
+} = require('./setup');
 
-let expect;
 const TEST_LIST_URL = 'https://letterboxd.com/brazyben/list/japanuary-challenge-2026/';
 
 describe('TC-WL-011: List Notification Subscription Login Flow (Bug Repro)', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
-        driver = await createDriver();
+        expect = await initChai();
+        driver = await new Builder().forBrowser('chrome').build();
+        await driver.manage().window().maximize();
         await driver.manage().deleteAllCookies();
     });
 
@@ -39,7 +48,7 @@ describe('TC-WL-011: List Notification Subscription Login Flow (Bug Repro)', fun
 
     it('Step 2: Click notification bell and verify login prompt', async function() {
         const bellIcon = await driver.wait(
-            until.elementLocated(By.css('.content-wrap .list-link .icon-notify, .icon-dontnotify, a[href*="settings/notifications"], .notification-icon')),
+            until.elementLocated(By.css('.icon-notify, .icon-dontnotify, .notification-icon')),
             TIMEOUT
         );
 
@@ -64,14 +73,14 @@ describe('TC-WL-011: List Notification Subscription Login Flow (Bug Repro)', fun
         expect(onLoginPage, 'Should be redirected to login page').to.be.true;
     });
 
-    it('Step 3: Login and verify redirect back to list', async function() {
-        const usernameField = await driver.wait(until.elementLocated(By.css('input[name="username"]')), TIMEOUT);
+    it('Step 3: Login and verify redirect back to list (BUG: Fails to redirect)', async function() {
+        const usernameField = await driver.wait(until.elementLocated(By.css(LOCATORS.usernameField)), TIMEOUT);
         await usernameField.sendKeys(TEST_USER.username);
         
-        const passwordField = await driver.findElement(By.css('input[name="password"]'));
+        const passwordField = await driver.findElement(By.css(LOCATORS.passwordField));
         await passwordField.sendKeys(TEST_USER.password);
         
-        const submitBtn = await driver.findElement(By.css('input[type="submit"], button[type="submit"]'));
+        const submitBtn = await driver.findElement(By.css(LOCATORS.submitButton));
         await submitBtn.click();
         
         await driver.sleep(5000);
@@ -79,6 +88,7 @@ describe('TC-WL-011: List Notification Subscription Login Flow (Bug Repro)', fun
         const currentUrl = await driver.getCurrentUrl();
         console.log('Current URL after login attempt:', currentUrl);
         
+        // BUG: User gets stuck in login loop instead of being redirected back
         expect(currentUrl).to.include('japanuary-challenge-2026', 'System failed to redirect back to the list after login (Known Bug)');
     });
 });

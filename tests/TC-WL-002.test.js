@@ -2,26 +2,37 @@
  * Test Case ID: TC-WL-002
  * Requirement ID: REQ-WL-03
  * Title: Verify movie appears in Watchlist page
- * Description: Verify that after adding a movie, it successfully appears in the user's Watchlist page with correct title and poster.
+ * Description: Verify that after adding a movie, it successfully appears in the user's Watchlist page
  * Priority: High
  * Severity: Major
  * Type: Functional/State Transition
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { createDriver, login, BASE_URL, TEST_USER, TIMEOUT, By, until } = require('./helpers/test-helper');
+const { By, until } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    TIMEOUT,
+    TEST_USER,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai
+} = require('./setup');
 
-let expect;
 const TEST_MOVIE_SLUG = 'transformers';
 const TEST_MOVIE_URL = `${BASE_URL}/film/${TEST_MOVIE_SLUG}/`;
-const TEST_MOVIE_TITLE = 'Transformers';
 
 describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
+        expect = await initChai();
         driver = await createDriver();
         await login(driver);
     });
@@ -31,7 +42,7 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
             try {
                 await driver.get(TEST_MOVIE_URL);
                 const watchlistBtn = await driver.wait(
-                    until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist')),
+                    until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
                     5000
                 );
                 const classAttr = await watchlistBtn.getAttribute('class');
@@ -42,7 +53,8 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
             } catch (e) {
                 console.log('Cleanup warning: ' + e.message);
             }
-            await driver.quit();
+            
+            await quitDriver(driver);
         }
     });
 
@@ -54,7 +66,7 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
         await driver.get(TEST_MOVIE_URL);
         
         let watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist')),
+            until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
             TIMEOUT
         );
 
@@ -66,14 +78,14 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
             await watchlistBtn.click();
             await driver.sleep(2000);
             
-             watchlistBtn = await driver.wait(
-                until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist')),
+            watchlistBtn = await driver.wait(
+                until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
                 TIMEOUT
             );
         }
 
         await watchlistBtn.click();
-        await driver.sleep(1500); 
+        await driver.sleep(1500);
 
         const finalClass = await watchlistBtn.getAttribute('class');
         expect(finalClass).to.include('-added', 'Button should indicate listed state');
@@ -90,17 +102,9 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
         expect(await driver.getCurrentUrl()).to.include('/watchlist');
 
         const moviePoster = await driver.wait(
-            until.elementLocated(By.css(`div[data-film-slug="${TEST_MOVIE_SLUG}"], li[data-film-slug="${TEST_MOVIE_SLUG}"]`)),
+            until.elementLocated(By.css(`[data-film-slug="${TEST_MOVIE_SLUG}"]`)),
             TIMEOUT
         );
         expect(await moviePoster.isDisplayed(), 'Movie poster should be displayed in grid').to.be.true;
-
-        try {
-            const posterImage = await moviePoster.findElement(By.css('img'));
-            const naturalWidth = await driver.executeScript("return arguments[0].naturalWidth", posterImage);
-            expect(naturalWidth).to.be.above(0, 'Poster image should be loaded correctly');
-        } catch(e) {
-            console.warn('Image verification warning: ' + e.message);
-        }
     });
 });

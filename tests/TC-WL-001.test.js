@@ -6,21 +6,31 @@
  * Priority: High
  * Severity: Critical
  * Type: Functional
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { createDriver, login, BASE_URL, TIMEOUT, By, until } = require('./helpers/test-helper');
-
-let expect;
+const { By, until } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    TIMEOUT,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai
+} = require('./setup');
 
 const TEST_MOVIE_URL = `${BASE_URL}/film/the-spongebob-movie-search-for-squarepants/`;
 
 describe('TC-WL-001: Add movie to Watchlist – logged in', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
+        expect = await initChai();
         driver = await createDriver();
         await login(driver);
     });
@@ -30,7 +40,7 @@ describe('TC-WL-001: Add movie to Watchlist – logged in', function() {
             try {
                 await driver.get(TEST_MOVIE_URL);
                 const watchlistBtn = await driver.wait(
-                    until.elementLocated(By.css('.sidebar-user-actions .watchlist, a.watchlist, [data-action="remove-from-watchlist"]')),
+                    until.elementLocated(By.css('.action-large.-watchlist a, .watchlist')),
                     5000
                 );
                 const classAttr = await watchlistBtn.getAttribute('class');
@@ -41,7 +51,8 @@ describe('TC-WL-001: Add movie to Watchlist – logged in', function() {
             } catch (e) {
                 console.log('Cleanup warning: ' + e.message);
             }
-            await driver.quit();
+            
+            await quitDriver(driver);
         }
     });
 
@@ -60,40 +71,35 @@ describe('TC-WL-001: Add movie to Watchlist – logged in', function() {
      * Expected: Button indicates "In Watchlist" or film appears in watchlist
      */
     it('Step 2: Click Add to Watchlist and verify change', async function() {
+        // Koristi relativni selektor za watchlist link
         let watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist, .action-large.-watchlist a')),
+            until.elementLocated(By.css('.action-large.-watchlist a')),
             TIMEOUT
         );
 
-        const initialClass = await watchlistBtn.getAttribute('class');
-        let isAlreadyAdded = initialClass.includes('-added') || initialClass.includes('checked');
-        
-        if (!isAlreadyAdded) {
-            try {
-                const parent = await watchlistBtn.findElement(By.xpath('./..'));
-                const parentClass = await parent.getAttribute('class');
-                isAlreadyAdded = parentClass.includes('checked') || parentClass.includes('-added');
-            } catch (e) {
-            }
-        }
+        // Provjeri parent element za added stanje
+        const parentEl = await watchlistBtn.findElement(By.xpath('./..'));
+        let parentClass = await parentEl.getAttribute('class');
+        let isAlreadyAdded = parentClass.includes('-added');
 
         if (isAlreadyAdded) {
             console.log('Movie was already in watchlist, removing first...');
             await watchlistBtn.click();
             await driver.sleep(2000);
             
-             watchlistBtn = await driver.wait(
-                until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist, .action-large.-watchlist a')),
+            watchlistBtn = await driver.wait(
+                until.elementLocated(By.css('.action-large.-watchlist a')),
                 TIMEOUT
             );
         }
 
         await watchlistBtn.click();
-        await driver.sleep(1000);
+        await driver.sleep(1500);
 
-        const updatedClass = await watchlistBtn.getAttribute('class');
-        
-        const isAdded = updatedClass.includes('-added') || updatedClass.includes('checked');
+        // Ponovo dohvati parent i provjeri klasu
+        const updatedParent = await watchlistBtn.findElement(By.xpath('./..'));
+        const updatedClass = await updatedParent.getAttribute('class');
+        const isAdded = updatedClass.includes('-added');
         
         expect(isAdded, 'Watchlist button should indicate added state').to.be.true;
     });

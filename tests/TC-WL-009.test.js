@@ -6,49 +6,37 @@
  * Priority: Low
  * Severity: Minor
  * Type: UI/Layout
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { Builder, By, until } = require('selenium-webdriver');
-
-let expect;
-
-const BASE_URL = 'https://letterboxd.com';
-const SETTINGS_URL = `${BASE_URL}/settings/`;
-const TIMEOUT = 10000;
-
-const TEST_USER = {
-    username: 'formal_methods',
-    password: 'Formal_Methods2025'
-};
+const { By, until } = require('selenium-webdriver');
+const {
+    SETTINGS_URL,
+    TIMEOUT,
+    LOCATORS,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai
+} = require('./setup');
 
 describe('TC-WL-009: Resizing Bio field does not break UI layout', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
-        driver = await new Builder().forBrowser('chrome').build();
-        await driver.manage().window().maximize();
-        
-        await driver.get(BASE_URL + '/sign-in/');
-        
-        await driver.wait(until.elementLocated(By.css('input[name="username"]')), TIMEOUT);
-        const usernameField = await driver.findElement(By.css('input[name="username"]'));
-        await usernameField.sendKeys(TEST_USER.username);
-        
-        const passwordField = await driver.findElement(By.css('input[name="password"]'));
-        await passwordField.sendKeys(TEST_USER.password);
-        
-        await driver.sleep(500);
-        const submitBtn = await driver.findElement(By.css('input[type="submit"], button[type="submit"]'));
-        await driver.executeScript('arguments[0].click();', submitBtn);
-        await driver.sleep(3000);
+        expect = await initChai();
+        driver = await createDriver();
+        await login(driver);
     });
 
     after(async function() {
         if (driver) {
-            await driver.quit();
+            await quitDriver(driver);
         }
     });
 
@@ -62,24 +50,19 @@ describe('TC-WL-009: Resizing Bio field does not break UI layout', function() {
 
     it('Step 2: Should show resize cursor on Bio field edge', async function() {
         const bioField = await driver.wait(
-            until.elementLocated(By.css('textarea[name="bio"], textarea#bio, .bio-field textarea')),
+            until.elementLocated(By.css(LOCATORS.bioField)),
             TIMEOUT
         );
         
         const resizeStyle = await bioField.getCssValue('resize');
-        
         const initialWidth = await bioField.getCssValue('width');
         const initialHeight = await bioField.getCssValue('height');
         
         expect(await bioField.isDisplayed()).to.be.true;
-        
-        this.initialWidth = parseInt(initialWidth);
     });
 
     it('Step 3: Should allow resizing the Bio field', async function() {
-        const bioField = await driver.findElement(
-            By.css('textarea[name="bio"], textarea#bio, .bio-field textarea')
-        );
+        const bioField = await driver.findElement(By.css(LOCATORS.bioField));
         
         const windowSize = await driver.manage().window().getRect();
         
@@ -95,9 +78,7 @@ describe('TC-WL-009: Resizing Bio field does not break UI layout', function() {
     });
 
     it('Step 4: Should snap back to maximum width to avoid UI overlap', async function() {
-        const bioField = await driver.findElement(
-            By.css('textarea[name="bio"], textarea#bio, .bio-field textarea')
-        );
+        const bioField = await driver.findElement(By.css(LOCATORS.bioField));
         
         await driver.executeScript('arguments[0].blur();', bioField);
         await driver.sleep(1000);
@@ -106,7 +87,7 @@ describe('TC-WL-009: Resizing Bio field does not break UI layout', function() {
         const currentWidthNum = parseInt(currentWidth);
         
         const favoriteFilms = await driver.findElements(
-            By.css('.favourite-films, .favorite-films, .poster-list')
+            By.css('.favourite-films, .poster-list')
         );
         
         if (favoriteFilms.length > 0) {

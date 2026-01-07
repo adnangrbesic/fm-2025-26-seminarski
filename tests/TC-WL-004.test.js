@@ -6,27 +6,40 @@
  * Priority: High
  * Severity: Major
  * Type: Functional/State Transition
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { createDriver, login, BASE_URL, TEST_USER, TIMEOUT, By, until } = require('./helpers/test-helper');
+const { By, until } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    TIMEOUT,
+    TEST_USER,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai
+} = require('./setup');
 
-let expect;
 const TEST_MOVIE_SLUG = 'cars-2';
 const TEST_MOVIE_URL = `${BASE_URL}/film/${TEST_MOVIE_SLUG}/`;
 
 describe('TC-WL-004: Remove movie from Watchlist', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
+        expect = await initChai();
         driver = await createDriver();
         await login(driver);
 
+        // Ensure movie is in watchlist first
         await driver.get(TEST_MOVIE_URL);
         const watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist')),
+            until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
             TIMEOUT
         );
         const cls = await watchlistBtn.getAttribute('class');
@@ -38,7 +51,7 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
 
     after(async function() {
         if (driver) {
-            await driver.quit();
+            await quitDriver(driver);
         }
     });
 
@@ -46,7 +59,7 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
         await driver.get(`${BASE_URL}/${TEST_USER.username}/watchlist/`);
         
         const moviePoster = await driver.wait(
-            until.elementLocated(By.css(`div[data-film-slug="${TEST_MOVIE_SLUG}"]`)),
+            until.elementLocated(By.css(`[data-film-slug="${TEST_MOVIE_SLUG}"]`)),
             TIMEOUT
         );
         expect(await moviePoster.isDisplayed()).to.be.true;
@@ -56,7 +69,7 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
         await driver.get(TEST_MOVIE_URL);
         
         const watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.sidebar-user-actions .watchlist, .actions-panel .watchlist, a.add-to-watchlist')),
+            until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
             TIMEOUT
         );
         
@@ -70,7 +83,7 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
     it('Step 3: Return to Watchlist and verify removal', async function() {
         await driver.get(`${BASE_URL}/${TEST_USER.username}/watchlist/`);
         
-        const moviePosters = await driver.findElements(By.css(`div[data-film-slug="${TEST_MOVIE_SLUG}"]`));
+        const moviePosters = await driver.findElements(By.css(`[data-film-slug="${TEST_MOVIE_SLUG}"]`));
         
         expect(moviePosters.length).to.equal(0, 'Movie should not be present in watchlist grid');
     });

@@ -6,28 +6,28 @@
  * Priority: High
  * Severity: Major
  * Type: Functional
+ * 
+ * Koristi centralizirani setup iz setup.js
+ * NAPOMENA: Ovaj test NE koristi globalni login jer testira ponašanje za neprijavljene korisnike
  */
 
 const { Builder, By, until } = require('selenium-webdriver');
-
-let expect;
-
-const BASE_URL = 'https://letterboxd.com';
-const SETTINGS_URL = `${BASE_URL}/settings/`;
-const TIMEOUT = 10000;
-
-const TEST_USER = {
-    username: 'formal_methods',
-    password: 'Formal_Methods2025'
-};
+const {
+    BASE_URL,
+    SETTINGS_URL,
+    TIMEOUT,
+    TEST_USER,
+    initChai,
+    LOCATORS
+} = require('./setup');
 
 describe('TC-WL-005: Unauthenticated users cannot access profile settings', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
+        expect = await initChai();
         driver = await new Builder().forBrowser('chrome').build();
         await driver.manage().window().maximize();
     });
@@ -48,26 +48,26 @@ describe('TC-WL-005: Unauthenticated users cannot access profile settings', func
 
     it('Step 2: Should log in with valid credentials', async function() {
         const signInLink = await driver.wait(
-            until.elementLocated(By.css('a.sign-in-link, a[href="/sign-in/"]')),
+            until.elementLocated(By.css(LOCATORS.signInLink)),
             TIMEOUT
         );
         await signInLink.click();
         
-        await driver.wait(until.elementLocated(By.css('input[name="username"]')), TIMEOUT);
+        await driver.wait(until.elementLocated(By.css(LOCATORS.usernameField)), TIMEOUT);
         
-        const usernameField = await driver.findElement(By.css('input[name="username"]'));
+        const usernameField = await driver.findElement(By.css(LOCATORS.usernameField));
         await usernameField.sendKeys(TEST_USER.username);
         
-        const passwordField = await driver.findElement(By.css('input[name="password"]'));
+        const passwordField = await driver.findElement(By.css(LOCATORS.passwordField));
         await passwordField.sendKeys(TEST_USER.password);
         
-        const submitBtn = await driver.findElement(By.css('input[type="submit"], button[type="submit"]'));
+        const submitBtn = await driver.findElement(By.css(LOCATORS.submitButton));
         await submitBtn.click();
         
         await driver.sleep(3000);
         
         const profileElement = await driver.wait(
-            until.elementLocated(By.css('.nav-profile, .avatar, [data-person]')),
+            until.elementLocated(By.css(LOCATORS.profileMenu)),
             TIMEOUT
         );
         expect(await profileElement.isDisplayed()).to.be.true;
@@ -98,7 +98,7 @@ describe('TC-WL-005: Unauthenticated users cannot access profile settings', func
         await signOutLink.click();
         await driver.sleep(2000);
         
-        const hasLoginForm = await driver.findElements(By.css('input[name="username"], input[name="password"]'));
+        const hasLoginForm = await driver.findElements(By.css(LOCATORS.usernameField));
         expect(hasLoginForm.length).to.be.greaterThan(0);
     });
 
@@ -106,12 +106,12 @@ describe('TC-WL-005: Unauthenticated users cannot access profile settings', func
         await driver.get(SETTINGS_URL);
         await driver.sleep(2000);
         
-        const hasLoginForm = await driver.findElements(By.css('input[name="username"], input[name="password"]'));
+        const hasLoginForm = await driver.findElements(By.css(LOCATORS.usernameField));
         expect(hasLoginForm.length).to.be.greaterThan(0);
     });
 
     it('Step 6: Should not allow access to settings page', async function() {
-        const hasLoginForm = await driver.findElements(By.css('input[name="username"], input[name="password"]'));
+        const hasLoginForm = await driver.findElements(By.css(LOCATORS.usernameField));
         const currentUrl = await driver.getCurrentUrl();
         
         const isProtected = hasLoginForm.length > 0 || currentUrl.includes('sign-in') || !currentUrl.includes('settings');

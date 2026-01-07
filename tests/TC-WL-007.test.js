@@ -6,53 +6,37 @@
  * Priority: Medium
  * Severity: Minor
  * Type: Functional
+ * 
+ * Koristi centralizirani setup iz setup.js
  */
 
-const { Builder, By, until, Key } = require('selenium-webdriver');
-
-let expect;
-
-const BASE_URL = 'https://letterboxd.com';
-const SETTINGS_URL = `${BASE_URL}/settings/`;
-const TIMEOUT = 10000;
-
-const TEST_USER = {
-    username: 'formal_methods',
-    password: 'Formal_Methods2025'
-};
+const { By, until, Key } = require('selenium-webdriver');
+const {
+    BASE_URL,
+    SETTINGS_URL,
+    TIMEOUT,
+    getDriver,
+    getExpect,
+    createDriver,
+    login,
+    quitDriver,
+    initChai
+} = require('./setup');
 
 describe('TC-WL-007: System does not auto-save favorite film order', function() {
     this.timeout(60000);
     let driver;
+    let expect;
 
     before(async function() {
-        const chai = await import('chai');
-        expect = chai.expect;
-        driver = await new Builder().forBrowser('chrome').build();
-        await driver.manage().window().maximize();
-        
-        await driver.get(BASE_URL);
-        const signInLink = await driver.wait(
-            until.elementLocated(By.css('a.sign-in-link, a[href="/sign-in/"]')),
-            TIMEOUT
-        );
-        await signInLink.click();
-        
-        await driver.wait(until.elementLocated(By.css('input[name="username"]')), TIMEOUT);
-        const usernameField = await driver.findElement(By.css('input[name="username"]'));
-        await usernameField.sendKeys(TEST_USER.username);
-        
-        const passwordField = await driver.findElement(By.css('input[name="password"]'));
-        await passwordField.sendKeys(TEST_USER.password);
-        
-        const submitBtn = await driver.findElement(By.css('input[type="submit"], button[type="submit"]'));
-        await submitBtn.click();
-        await driver.sleep(3000);
+        expect = await initChai();
+        driver = await createDriver();
+        await login(driver);
     });
 
     after(async function() {
         if (driver) {
-            await driver.quit();
+            await quitDriver(driver);
         }
     });
 
@@ -66,7 +50,7 @@ describe('TC-WL-007: System does not auto-save favorite film order', function() 
 
     it('Step 2: Should indicate drag capability on favorite film', async function() {
         const favoriteFilms = await driver.findElements(
-            By.css('.favourite-films .film-poster, .favorite-films .poster, .poster-list li')
+            By.css('.favourite-films .film-poster, .poster-list li')
         );
         
         if (favoriteFilms.length >= 2) {
@@ -88,7 +72,7 @@ describe('TC-WL-007: System does not auto-save favorite film order', function() 
 
     it('Step 3: Should allow reordering films via drag and drop', async function() {
         const favoriteFilms = await driver.findElements(
-            By.css('.favourite-films .film-poster, .favorite-films .poster, .poster-list li, .favourite-film-poster')
+            By.css('.favourite-films .film-poster, .poster-list li, .favourite-film-poster')
         );
         
         if (favoriteFilms.length >= 2) {
@@ -115,7 +99,7 @@ describe('TC-WL-007: System does not auto-save favorite film order', function() 
         await driver.sleep(500);
         
         const favoriteFilms = await driver.findElements(
-            By.css('.favourite-films .film-poster, .favorite-films .poster, .poster-list li')
+            By.css('.favourite-films .film-poster, .poster-list li')
         );
         
         expect(favoriteFilms.length).to.be.greaterThan(0);
