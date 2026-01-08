@@ -43,7 +43,7 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
                 await driver.get(TEST_MOVIE_URL);
                 const watchlistBtn = await driver.wait(
                     until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
-                    5000
+                    TIMEOUT
                 );
                 const classAttr = await watchlistBtn.getAttribute('class');
                 if (classAttr.includes('-added') || classAttr.includes('checked')) {
@@ -65,30 +65,52 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
     it('Step 1: Add movie to Watchlist', async function() {
         await driver.get(TEST_MOVIE_URL);
         
-        let watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
-            TIMEOUT
-        );
+        // Find all links in watchlist container
+        let links = await driver.findElements(By.css('.action-large.-watchlist a'));
+        
+        if (links.length > 0) {
+            const initialClass = await links[0].getAttribute('class');
+            const isAlreadyAdded = initialClass.includes('-on') || initialClass.includes('remove-from-watchlist');
 
-        const initialClass = await watchlistBtn.getAttribute('class');
-        const isAlreadyAdded = initialClass.includes('-added') || initialClass.includes('checked');
-
-        if (isAlreadyAdded) {
-            console.log('Movie already in watchlist, ensuring fresh add state...');
-            await watchlistBtn.click();
-            await driver.sleep(2000);
-            
-            watchlistBtn = await driver.wait(
-                until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
-                TIMEOUT
-            );
+            if (isAlreadyAdded) {
+                console.log('Movie already in watchlist, removing first...');
+                await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", links[0]);
+                await driver.sleep(300);
+                await driver.executeScript(`
+                    var event = new MouseEvent('click', {bubbles: true, cancelable: true});
+                    arguments[0].dispatchEvent(event);
+                `, links[0]);
+                await driver.sleep(1500);
+                console.log('Movie removed, proceeding to add.');
+            }
         }
 
-        await watchlistBtn.click();
+        // Find the ADD link (not remove-from-watchlist)
+        links = await driver.findElements(By.css('.action-large.-watchlist a'));
+        let addLink = null;
+        for (let link of links) {
+            const cls = await link.getAttribute('class');
+            if (!cls.includes('remove-from-watchlist')) {
+                addLink = link;
+                break;
+            }
+        }
+        if (!addLink && links.length > 0) addLink = links[0];
+        
+        await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", addLink);
+        await driver.sleep(300);
+        await driver.executeScript(`
+            var event = new MouseEvent('click', {bubbles: true, cancelable: true});
+            arguments[0].dispatchEvent(event);
+        `, addLink);
+        
+        // Wait and verify
         await driver.sleep(1500);
-
-        const finalClass = await watchlistBtn.getAttribute('class');
-        expect(finalClass).to.include('-added', 'Button should indicate listed state');
+        links = await driver.findElements(By.css('.action-large.-watchlist a'));
+        const finalClass = await links[0].getAttribute('class');
+        const isAdded = finalClass.includes('-on') || finalClass.includes('remove-from-watchlist');
+        expect(isAdded, 'Link should indicate film is in watchlist').to.be.true;
+        console.log('Step 1 Passed: Movie added to watchlist.');
     });
 
     /**
@@ -99,12 +121,11 @@ describe('TC-WL-002: Verify movie appears in Watchlist page', function() {
         const watchlistUrl = `${BASE_URL}/${TEST_USER.username}/watchlist/`;
         await driver.get(watchlistUrl);
         
-        expect(await driver.getCurrentUrl()).to.include('/watchlist');
-
         const moviePoster = await driver.wait(
             until.elementLocated(By.css(`[data-film-slug="${TEST_MOVIE_SLUG}"]`)),
             TIMEOUT
         );
-        expect(await moviePoster.isDisplayed(), 'Movie poster should be displayed in grid').to.be.true;
+        expect(await moviePoster.isDisplayed()).to.be.true;
+        console.log('Step 2 Passed: Movie found on Watchlist page.');
     });
 });

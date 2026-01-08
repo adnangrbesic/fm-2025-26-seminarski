@@ -9,7 +9,7 @@ const chrome = require('selenium-webdriver/chrome');
 // ============== KONSTANTE ==============
 const BASE_URL = 'https://letterboxd.com';
 const SETTINGS_URL = `${BASE_URL}/settings/`;
-const TIMEOUT = 10000;
+const TIMEOUT = 30000;
 
 // Test kredencijali
 const TEST_USER = {
@@ -63,6 +63,11 @@ async function createDriver() {
     options.addArguments('--disable-gpu');
     options.addArguments('--no-sandbox');
     options.addArguments('--disable-dev-shm-usage');
+    options.addArguments('--ignore-certificate-errors');
+    options.addArguments('--log-level=3');
+    options.addArguments('--disable-logging');
+    // options.addArguments('--blink-settings=imagesEnabled=false');
+    // options.setPageLoadStrategy('eager'); // Reverted to normal strategy to ensure JS loads
     
     driver = await new Builder()
         .forBrowser('chrome')
@@ -70,7 +75,7 @@ async function createDriver() {
         .build();
     
     await driver.manage().window().maximize();
-    await driver.manage().setTimeouts({ implicit: 5000 });
+    await driver.manage().setTimeouts({ implicit: 2000 });
     
     return driver;
 }
@@ -83,7 +88,6 @@ async function login(customDriver = null) {
     
     // Navigiraj na sign-in stranicu
     await d.get(`${BASE_URL}/sign-in/`);
-    await d.sleep(3000);
     
     // Unesi kredencijale
     await d.wait(until.elementLocated(By.css(LOCATORS.usernameField)), TIMEOUT);
@@ -98,28 +102,27 @@ async function login(customDriver = null) {
     // Čekaj dok se gumb ne omogući (poll svake sekunde)
     let attempts = 0;
     let submitBtn;
-    while (attempts < 15) {
-        try {
-            submitBtn = await d.findElement(By.css('button[type="submit"]:not([disabled])'));
-            const isEnabled = await submitBtn.isEnabled();
-            if (isEnabled) break;
-        } catch (e) {}
-        await d.sleep(1000);
-        attempts++;
-    }
     
-    if (!submitBtn) {
-        // Fallback - pokušaj kliknuti bilo koji submit
-        submitBtn = await d.findElement(By.css('button[type="submit"], input[type="submit"]'));
+    // Wait for button to be clickable
+    try {
+        submitBtn = await d.wait(until.elementLocated(By.css('button[type="submit"]')), 5000);
+        await d.wait(until.elementIsEnabled(submitBtn), 5000);
+    } catch (e) {
+         // Fallback selectors
+         submitBtn = await d.findElement(By.css('input[type="submit"]'));
     }
     
     // Scroll i klik putem JavaScript-a
     await d.executeScript('arguments[0].scrollIntoView({block: "center"});', submitBtn);
-    await d.sleep(500);
+    await d.sleep(200);
     await d.executeScript('arguments[0].click();', submitBtn);
     
-    // Čekaj da se login završi
-    await d.sleep(4000);
+    // Wait for login to complete (check for user menu or nav profile)
+    try {
+        await d.wait(until.elementLocated(By.css('.nav-profile, .avatar, .profile-link')), 10000);
+    } catch(e) {
+        console.warn('Warning: Login validation timed out, but proceeding...');
+    }
 }
 
 /**

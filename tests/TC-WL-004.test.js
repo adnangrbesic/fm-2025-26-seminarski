@@ -45,7 +45,10 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
         const cls = await watchlistBtn.getAttribute('class');
         if (!cls.includes('-added')) {
             await watchlistBtn.click();
-            await driver.sleep(1000);
+            await driver.wait(async () => {
+                const c = await watchlistBtn.getAttribute('class');
+                return c.includes('-added');
+            }, TIMEOUT);
         }
     });
 
@@ -63,21 +66,31 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
             TIMEOUT
         );
         expect(await moviePoster.isDisplayed()).to.be.true;
+        console.log('Step 1 Passed: Movie present in watchlist.');
     });
 
     it('Step 2: Remove movie from watchlist', async function() {
         await driver.get(TEST_MOVIE_URL);
         
-        const watchlistBtn = await driver.wait(
-            until.elementLocated(By.css('.watchlist, [data-action*="watchlist"]')),
-            TIMEOUT
-        );
+        let links = await driver.findElements(By.css('.action-large.-watchlist a'));
+        expect(links.length).to.be.greaterThan(0, 'Watchlist link should exist');
         
-        await watchlistBtn.click();
-        await driver.sleep(1000);
+        // Should be "remove-from-watchlist" link since movie is added
+        await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", links[0]);
+        await driver.sleep(300);
+        await driver.executeScript(`
+            var event = new MouseEvent('click', {bubbles: true, cancelable: true});
+            arguments[0].dispatchEvent(event);
+        `, links[0]);
         
-        const cls = await watchlistBtn.getAttribute('class');
-        expect(cls).to.not.include('-added', 'Button should revert to not-added state');
+        // Wait and verify state changed to "add"
+        await driver.sleep(1500);
+        links = await driver.findElements(By.css('.action-large.-watchlist a'));
+        const finalClass = await links[0].getAttribute('class');
+        const isRemoved = !finalClass.includes('-on') && !finalClass.includes('remove-from-watchlist');
+        
+        expect(isRemoved, 'Link should indicate film is NOT in watchlist (should be add-to-watchlist)').to.be.true;
+        console.log('Step 2 Passed: Movie removed via button.');
     });
 
     it('Step 3: Return to Watchlist and verify removal', async function() {
@@ -86,5 +99,6 @@ describe('TC-WL-004: Remove movie from Watchlist', function() {
         const moviePosters = await driver.findElements(By.css(`[data-film-slug="${TEST_MOVIE_SLUG}"]`));
         
         expect(moviePosters.length).to.equal(0, 'Movie should not be present in watchlist grid');
+        console.log('Step 3 Passed: Movie absent from watchlist.');
     });
 });
